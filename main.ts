@@ -4,6 +4,8 @@ interface OrganizeRule {
 	tag: string;
 	folder: string;
 	enabled: boolean;
+	fileType: string; // e.g., "png", "pdf", "md"
+	filenamePattern: string; // e.g., "Screenshot", "Untitled"
 }
 
 interface FileOrganizerSettings {
@@ -86,14 +88,14 @@ export default class FileOrganizerPlugin extends Plugin {
 	}
 
 	async organizeByRule(rule: OrganizeRule): Promise<number> {
-		const { tag, folder } = rule;
+		const { tag, folder, fileType, filenamePattern } = rule;
 		let movedCount = 0;
 
 		// Ensure target folder exists
 		await this.ensureFolder(folder);
 
-		// Get all markdown files
-		const files = this.app.vault.getMarkdownFiles();
+		// Get all files (not just markdown)
+		const files = this.app.vault.getFiles();
 
 		for (const file of files) {
 			// Skip if file is already in target folder
@@ -106,9 +108,9 @@ export default class FileOrganizerPlugin extends Plugin {
 				continue;
 			}
 
-			// Check if file has the tag
-			const hasTag = await this.fileHasTag(file, tag);
-			if (hasTag) {
+			// Check if file matches the rule
+			const matches = await this.fileMatchesRule(file, rule);
+			if (matches) {
 				try {
 					const newPath = `${folder}/${file.name}`;
 
@@ -129,6 +131,41 @@ export default class FileOrganizerPlugin extends Plugin {
 		}
 
 		return movedCount;
+	}
+
+	async fileMatchesRule(file: TFile, rule: OrganizeRule): Promise<boolean> {
+		const { tag, fileType, filenamePattern } = rule;
+
+		// Check tag (only for markdown files)
+		if (tag) {
+			if (file.extension === 'md') {
+				const hasTag = await this.fileHasTag(file, tag);
+				if (hasTag) {
+					return true;
+				}
+			}
+		}
+
+		// Check file type
+		if (fileType && file.extension.toLowerCase() !== fileType.toLowerCase()) {
+			return false;
+		}
+
+		// Check filename pattern
+		if (filenamePattern) {
+			const basename = file.basename.toLowerCase();
+			const pattern = filenamePattern.toLowerCase();
+			if (!basename.includes(pattern)) {
+				return false;
+			}
+		}
+
+		// If fileType or filenamePattern is set and we got here, it matches
+		if (fileType || filenamePattern) {
+			return true;
+		}
+
+		return false;
 	}
 
 	async fileHasTag(file: TFile, tag: string): Promise<boolean> {
@@ -219,7 +256,7 @@ class FileOrganizerSettingTab extends PluginSettingTab {
 
 		containerEl.createEl('h3', { text: 'Organization Rules' });
 		containerEl.createEl('p', {
-			text: 'Files are automatically organized every 6 hours. Rules are processed in order.',
+			text: 'Match files by tag (markdown only), file type, filename pattern, or any combination. Leave fields empty to ignore that criteria.',
 			cls: 'setting-item-description'
 		});
 
@@ -237,7 +274,9 @@ class FileOrganizerSettingTab extends PluginSettingTab {
 					this.plugin.settings.rules.push({
 						tag: '',
 						folder: '',
-						enabled: true
+						enabled: true,
+						fileType: '',
+						filenamePattern: ''
 					});
 					await this.plugin.saveSettings();
 					this.display();
@@ -282,7 +321,7 @@ class FileOrganizerSettingTab extends PluginSettingTab {
 		const ruleSetting = new Setting(containerEl)
 			.setClass('file-organizer-rule');
 
-		// Single row with toggle on far left, then tag, folder, and delete
+		// Single row with toggle, tag, filetype, filename pattern, folder, and delete
 		ruleSetting
 			.addToggle(toggle => toggle
 				.setValue(rule.enabled)
@@ -292,10 +331,24 @@ class FileOrganizerSettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 				}))
 			.addText(text => text
-				.setPlaceholder('tag-name')
-				.setValue(rule.tag)
+				.setPlaceholder('tag')
+				.setValue(rule.tag || '')
 				.onChange(async (value) => {
 					rule.tag = value;
+					await this.plugin.saveSettings();
+				}))
+			.addText(text => text
+				.setPlaceholder('type (png/pdf/md)')
+				.setValue(rule.fileType || '')
+				.onChange(async (value) => {
+					rule.fileType = value;
+					await this.plugin.saveSettings();
+				}))
+			.addText(text => text
+				.setPlaceholder('filename pattern')
+				.setValue(rule.filenamePattern || '')
+				.onChange(async (value) => {
+					rule.filenamePattern = value;
 					await this.plugin.saveSettings();
 				}))
 			.addText(text => text
