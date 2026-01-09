@@ -1,6 +1,6 @@
 {
   "name": "obsidian-file-organizer",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Automatically organize Obsidian files",
   "main": "main.js",
   "scripts": {

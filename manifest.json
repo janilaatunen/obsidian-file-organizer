@@ -1,7 +1,7 @@
 {
   "id": "file-organizer",
   "name": "File Organizer",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "minAppVersion": "0.15.0",
   "description": "Automatically organize files",
   "author": "Jani Laatunen",

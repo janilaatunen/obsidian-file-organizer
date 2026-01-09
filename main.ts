@@ -244,9 +244,22 @@ class FileOrganizerSettingTab extends PluginSettingTab {
 		const ruleSetting = new Setting(containerEl)
 			.setClass('file-organizer-rule');
 
-		// Rule header with enable/disable toggle
+		// Single row with tag, folder, toggle, and delete
 		ruleSetting
-			.setName(`Rule ${index + 1}`)
+			.addText(text => text
+				.setPlaceholder('tag-name')
+				.setValue(rule.tag)
+				.onChange(async (value) => {
+					rule.tag = value;
+					await this.plugin.saveSettings();
+				}))
+			.addText(text => text
+				.setPlaceholder('folder/path')
+				.setValue(rule.folder)
+				.onChange(async (value) => {
+					rule.folder = value;
+					await this.plugin.saveSettings();
+				}))
 			.addToggle(toggle => toggle
 				.setValue(rule.enabled)
 				.setTooltip(rule.enabled ? 'Enabled' : 'Disabled')
@@ -262,31 +275,5 @@ class FileOrganizerSettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 					this.display();
 				}));
-
-		// Tag input
-		new Setting(containerEl)
-			.setName('Tag')
-			.setDesc('Files with this tag will be moved (e.g., "archive" or "#archive")')
-			.addText(text => text
-				.setPlaceholder('tag-name')
-				.setValue(rule.tag)
-				.onChange(async (value) => {
-					rule.tag = value;
-					await this.plugin.saveSettings();
-				}));
-
-		// Folder input
-		new Setting(containerEl)
-			.setName('Target Folder')
-			.setDesc('Folder where files will be moved (e.g., "Archive" or "Archive/2024")')
-			.addText(text => text
-				.setPlaceholder('folder/path')
-				.setValue(rule.folder)
-				.onChange(async (value) => {
-					rule.folder = value;
-					await this.plugin.saveSettings();
-				}));
-
-		containerEl.createEl('hr');
 	}
 }
