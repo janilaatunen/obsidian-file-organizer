@@ -10,12 +10,16 @@ interface OrganizeRule {
 interface FileOrganizerSettings {
 	rules: OrganizeRule[];
 	organizeOnStartup: boolean;
+	automaticOrganization: boolean;
+	lastOrganized: number; // timestamp
 	excludedFolders: string[];
 }
 
 const DEFAULT_SETTINGS: FileOrganizerSettings = {
 	rules: [],
 	organizeOnStartup: true,
+	automaticOrganization: true,
+	lastOrganized: 0,
 	excludedFolders: ['Templates']
 }
 
@@ -37,10 +41,10 @@ export default class FileOrganizerPlugin extends Plugin {
 			});
 		}
 
-		// Auto-organize every 6 hours
+		// Check if organization is needed every hour
 		this.organizerInterval = window.setInterval(() => {
-			this.organizeFiles();
-		}, 6 * 60 * 60 * 1000); // 6 hours in milliseconds
+			this.checkAndOrganize();
+		}, 60 * 60 * 1000); // Check every hour
 		this.registerInterval(this.organizerInterval);
 
 		// Add command to manually organize
@@ -65,6 +69,20 @@ export default class FileOrganizerPlugin extends Plugin {
 		await this.saveData(this.settings);
 	}
 
+	async checkAndOrganize() {
+		if (!this.settings.automaticOrganization) {
+			return;
+		}
+
+		const now = Date.now();
+		const dayInMs = 24 * 60 * 60 * 1000;
+		const timeSinceLastOrganized = now - this.settings.lastOrganized;
+
+		if (timeSinceLastOrganized >= dayInMs) {
+			await this.organizeFiles();
+		}
+	}
+
 	async organizeFiles() {
 		console.log('Starting file organization...');
 		let totalMoved = 0;
@@ -73,6 +91,10 @@ export default class FileOrganizerPlugin extends Plugin {
 			const moved = await this.organizeByRule(rule);
 			totalMoved += moved;
 		}
+
+		// Update last organized timestamp
+		this.settings.lastOrganized = Date.now();
+		await this.saveSettings();
 
 		if (totalMoved > 0) {
 			new Notice(`File Organizer: Moved ${totalMoved} file${totalMoved === 1 ? '' : 's'}`);
@@ -246,6 +268,17 @@ class FileOrganizerSettingTab extends PluginSettingTab {
 				.setValue(this.plugin.settings.organizeOnStartup)
 				.onChange(async (value) => {
 					this.plugin.settings.organizeOnStartup = value;
+					await this.plugin.saveSettings();
+				}));
+
+		// Automatic organization toggle
+		new Setting(containerEl)
+			.setName('Automatic organization')
+			.setDesc('Automatically organize files once every 24 hours')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.automaticOrganization)
+				.onChange(async (value) => {
+					this.plugin.settings.automaticOrganization = value;
 					await this.plugin.saveSettings();
 				}));
 
