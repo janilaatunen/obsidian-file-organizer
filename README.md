@@ -2,7 +2,7 @@
 
 > **⚠️ Disclaimer:** This plugin was vibe coded. It works, but edge cases may exist. Use at your own risk and always back up your vault before use.
 
-An Obsidian plugin that automatically organizes files by moving them to specified folders based on their tags. Runs silently in the background every 6 hours and on startup.
+An Obsidian plugin that automatically organizes files. Runs silently in the background every 6 hours and on startup.
 
 ## Features
 

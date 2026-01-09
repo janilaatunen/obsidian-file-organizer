@@ -1,7 +1,7 @@
 {
   "name": "obsidian-file-organizer",
   "version": "0.1.0",
-  "description": "Automatically organize Obsidian files by tags into specified folders",
+  "description": "Automatically organize Obsidian files",
   "main": "main.js",
   "scripts": {
     "dev": "node esbuild.config.mjs",
