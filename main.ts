@@ -387,8 +387,8 @@ class FileOrganizerSettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 				}))
 			.addButton(button => button
-				.setButtonText('Delete')
-				.setWarning()
+				.setIcon('trash')
+				.setTooltip('Delete rule')
 				.onClick(async () => {
 					this.plugin.settings.rules.splice(index, 1);
 					await this.plugin.saveSettings();
@@ -409,8 +409,8 @@ class FileOrganizerSettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 				}))
 			.addButton(button => button
-				.setButtonText('Delete')
-				.setWarning()
+				.setIcon('trash')
+				.setTooltip('Delete excluded folder')
 				.onClick(async () => {
 					this.plugin.settings.excludedFolders.splice(index, 1);
 					await this.plugin.saveSettings();
