@@ -258,7 +258,7 @@ class FileOrganizerSettingTab extends PluginSettingTab {
 		const {containerEl} = this;
 		containerEl.empty();
 
-		containerEl.createEl('h2', { text: 'File Organizer Settings' });
+		containerEl.createEl('h1', { text: 'File Organizer Settings' });
 
 		// Organization section
 		containerEl.createEl('h2', { text: 'Organization' });
@@ -312,7 +312,6 @@ class FileOrganizerSettingTab extends PluginSettingTab {
 		new Setting(containerEl)
 			.addButton(button => button
 				.setButtonText('Add Rule')
-				.setCta()
 				.onClick(async () => {
 					this.plugin.settings.rules.push({
 						tag: '',
@@ -354,11 +353,17 @@ class FileOrganizerSettingTab extends PluginSettingTab {
 		// Single row with tag, filetype, filename pattern, folder, and delete
 		ruleSetting
 			.addText(text => text
-				.setPlaceholder('tag')
+				.setPlaceholder('#tag')
 				.setValue(rule.tag || '')
 				.onChange(async (value) => {
+					// Ensure tag starts with #
+					if (value && !value.startsWith('#')) {
+						value = '#' + value;
+					}
 					rule.tag = value;
 					await this.plugin.saveSettings();
+					// Update the input field to show the #
+					text.setValue(value);
 				}))
 			.addText(text => text
 				.setPlaceholder('type (png/pdf/md)')
