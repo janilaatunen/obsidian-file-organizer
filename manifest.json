@@ -1,0 +1,10 @@
+{
+  "id": "file-organizer",
+  "name": "File Organizer",
+  "version": "1.0.0",
+  "minAppVersion": "0.15.0",
+  "description": "Automatically organize files by tags into specified folders",
+  "author": "Jani Laatunen",
+  "authorUrl": "",
+  "isDesktopOnly": false
+}

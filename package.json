@@ -1,0 +1,26 @@
+{
+  "name": "obsidian-file-organizer",
+  "version": "1.0.0",
+  "description": "Automatically organize Obsidian files by tags into specified folders",
+  "main": "main.js",
+  "scripts": {
+    "dev": "node esbuild.config.mjs",
+    "build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production"
+  },
+  "keywords": [
+    "obsidian",
+    "obsidian-plugin",
+    "file-organizer",
+    "automation"
+  ],
+  "author": "Jani Laatunen",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^16.11.6",
+    "builtin-modules": "^3.3.0",
+    "esbuild": "0.17.3",
+    "obsidian": "latest",
+    "tslib": "2.4.0",
+    "typescript": "4.7.4"
+  }
+}
