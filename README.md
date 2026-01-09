@@ -2,11 +2,11 @@
 
 > **⚠️ Disclaimer:** This plugin was vibe coded. It works, but edge cases may exist. Use at your own risk and always back up your vault before use.
 
-An Obsidian plugin that automatically organizes files. Runs silently in the background every 6 hours and on startup.
+An Obsidian plugin that automatically organizes files. Runs silently in the background at regular intervals and on startup.
 
 ## Features
 
-- **Automatic Organization**: Runs every 6 hours and optionally on startup
+- **Automatic Organization**: Runs at regular intervals and optionally on startup
 - **Tag-Based Rules**: Move files with specific tags to designated folders
 - **Multiple Rules**: Create as many organization rules as you need
 - **Silent Operation**: Works in the background, only shows notification when files are moved
@@ -50,7 +50,7 @@ An Obsidian plugin that automatically organizes files. Runs silently in the back
    - Enter a **Target Folder** (e.g., `Archive` or `Archive/2024`)
    - Toggle the rule **on/off** as needed
 
-4. Files are automatically organized every 6 hours
+4. Files are automatically organized at regular intervals
 
 ## Usage
 
@@ -58,7 +58,7 @@ An Obsidian plugin that automatically organizes files. Runs silently in the back
 
 Once configured, the plugin works automatically:
 - **On startup** (if enabled in settings)
-- **Every 6 hours** while Obsidian is running
+- **At regular intervals** while Obsidian is running
 
 ### Manual Organization
 
