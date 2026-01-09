@@ -3,7 +3,6 @@ import { App, Plugin, PluginSettingTab, Setting, TFile, Notice } from 'obsidian'
 interface OrganizeRule {
 	tag: string;
 	folder: string;
-	enabled: boolean;
 	fileType: string; // e.g., "png", "pdf", "md"
 	filenamePattern: string; // e.g., "Screenshot", "Untitled"
 }
@@ -71,10 +70,6 @@ export default class FileOrganizerPlugin extends Plugin {
 		let totalMoved = 0;
 
 		for (const rule of this.settings.rules) {
-			if (!rule.enabled) {
-				continue;
-			}
-
 			const moved = await this.organizeByRule(rule);
 			totalMoved += moved;
 		}
@@ -274,7 +269,6 @@ class FileOrganizerSettingTab extends PluginSettingTab {
 					this.plugin.settings.rules.push({
 						tag: '',
 						folder: '',
-						enabled: true,
 						fileType: '',
 						filenamePattern: ''
 					});
@@ -321,15 +315,8 @@ class FileOrganizerSettingTab extends PluginSettingTab {
 		const ruleSetting = new Setting(containerEl)
 			.setClass('file-organizer-rule');
 
-		// Single row with toggle, tag, filetype, filename pattern, folder, and delete
+		// Single row with tag, filetype, filename pattern, folder, and delete
 		ruleSetting
-			.addToggle(toggle => toggle
-				.setValue(rule.enabled)
-				.setTooltip(rule.enabled ? 'Enabled' : 'Disabled')
-				.onChange(async (value) => {
-					rule.enabled = value;
-					await this.plugin.saveSettings();
-				}))
 			.addText(text => text
 				.setPlaceholder('tag')
 				.setValue(rule.tag || '')
