@@ -260,6 +260,9 @@ class FileOrganizerSettingTab extends PluginSettingTab {
 
 		containerEl.createEl('h2', { text: 'File Organizer Settings' });
 
+		// Organization section
+		containerEl.createEl('h2', { text: 'Organization' });
+
 		// Organize on startup toggle
 		new Setting(containerEl)
 			.setName('Organize on startup')
@@ -282,7 +285,19 @@ class FileOrganizerSettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 				}));
 
-		containerEl.createEl('h3', { text: 'Organization Rules' });
+		// Manual organize button
+		new Setting(containerEl)
+			.setName('Organize files now')
+			.setDesc('Manually trigger file organization')
+			.addButton(button => button
+				.setButtonText('Organize Now')
+				.setCta()
+				.onClick(() => {
+					this.plugin.organizeFiles();
+				}));
+
+		// Rules section
+		containerEl.createEl('h2', { text: 'Organization Rules' });
 		containerEl.createEl('p', {
 			text: 'Match files by tag (markdown only), file type, filename pattern, or any combination. Leave fields empty to ignore that criteria.',
 			cls: 'setting-item-description'
@@ -310,7 +325,7 @@ class FileOrganizerSettingTab extends PluginSettingTab {
 				}));
 
 		// Excluded folders section
-		containerEl.createEl('h3', { text: 'Excluded Folders' });
+		containerEl.createEl('h2', { text: 'Excluded Folders' });
 		containerEl.createEl('p', {
 			text: 'Files in these folders will never be moved.',
 			cls: 'setting-item-description'
@@ -329,18 +344,6 @@ class FileOrganizerSettingTab extends PluginSettingTab {
 					this.plugin.settings.excludedFolders.push('');
 					await this.plugin.saveSettings();
 					this.display();
-				}));
-
-		// Manual organize button
-		containerEl.createEl('h3', { text: 'Manual Organization' });
-		new Setting(containerEl)
-			.setName('Organize files now')
-			.setDesc('Manually trigger file organization')
-			.addButton(button => button
-				.setButtonText('Organize Now')
-				.setCta()
-				.onClick(() => {
-					this.plugin.organizeFiles();
 				}));
 	}
 
