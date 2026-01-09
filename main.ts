@@ -9,11 +9,13 @@ interface OrganizeRule {
 interface FileOrganizerSettings {
 	rules: OrganizeRule[];
 	organizeOnStartup: boolean;
+	excludedFolders: string[];
 }
 
 const DEFAULT_SETTINGS: FileOrganizerSettings = {
 	rules: [],
-	organizeOnStartup: true
+	organizeOnStartup: true,
+	excludedFolders: ['Templates']
 }
 
 export default class FileOrganizerPlugin extends Plugin {
@@ -99,6 +101,11 @@ export default class FileOrganizerPlugin extends Plugin {
 				continue;
 			}
 
+			// Skip if file is in an excluded folder
+			if (this.isInExcludedFolder(file.path)) {
+				continue;
+			}
+
 			// Check if file has the tag
 			const hasTag = await this.fileHasTag(file, tag);
 			if (hasTag) {
@@ -160,6 +167,15 @@ export default class FileOrganizerPlugin extends Plugin {
 			console.error(`Error checking tags for ${file.path}:`, error);
 			return false;
 		}
+	}
+
+	isInExcludedFolder(filePath: string): boolean {
+		for (const excludedFolder of this.settings.excludedFolders) {
+			if (filePath.startsWith(excludedFolder + '/') || filePath.startsWith(excludedFolder + '\\')) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	async ensureFolder(folderPath: string) {
@@ -227,6 +243,28 @@ class FileOrganizerSettingTab extends PluginSettingTab {
 					this.display();
 				}));
 
+		// Excluded folders section
+		containerEl.createEl('h3', { text: 'Excluded Folders' });
+		containerEl.createEl('p', {
+			text: 'Files in these folders will never be moved.',
+			cls: 'setting-item-description'
+		});
+
+		// Display existing excluded folders
+		this.plugin.settings.excludedFolders.forEach((folder, index) => {
+			this.addExcludedFolderSetting(containerEl, folder, index);
+		});
+
+		// Add new excluded folder button
+		new Setting(containerEl)
+			.addButton(button => button
+				.setButtonText('Add Excluded Folder')
+				.onClick(async () => {
+					this.plugin.settings.excludedFolders.push('');
+					await this.plugin.saveSettings();
+					this.display();
+				}));
+
 		// Manual organize button
 		containerEl.createEl('h3', { text: 'Manual Organization' });
 		new Setting(containerEl)
@@ -244,8 +282,15 @@ class FileOrganizerSettingTab extends PluginSettingTab {
 		const ruleSetting = new Setting(containerEl)
 			.setClass('file-organizer-rule');
 
-		// Single row with tag, folder, toggle, and delete
+		// Single row with toggle on far left, then tag, folder, and delete
 		ruleSetting
+			.addToggle(toggle => toggle
+				.setValue(rule.enabled)
+				.setTooltip(rule.enabled ? 'Enabled' : 'Disabled')
+				.onChange(async (value) => {
+					rule.enabled = value;
+					await this.plugin.saveSettings();
+				}))
 			.addText(text => text
 				.setPlaceholder('tag-name')
 				.setValue(rule.tag)
@@ -260,18 +305,33 @@ class FileOrganizerSettingTab extends PluginSettingTab {
 					rule.folder = value;
 					await this.plugin.saveSettings();
 				}))
-			.addToggle(toggle => toggle
-				.setValue(rule.enabled)
-				.setTooltip(rule.enabled ? 'Enabled' : 'Disabled')
+			.addButton(button => button
+				.setButtonText('Delete')
+				.setWarning()
+				.onClick(async () => {
+					this.plugin.settings.rules.splice(index, 1);
+					await this.plugin.saveSettings();
+					this.display();
+				}));
+	}
+
+	addExcludedFolderSetting(containerEl: HTMLElement, folder: string, index: number) {
+		const folderSetting = new Setting(containerEl)
+			.setClass('file-organizer-excluded-folder');
+
+		folderSetting
+			.addText(text => text
+				.setPlaceholder('folder/path')
+				.setValue(folder)
 				.onChange(async (value) => {
-					rule.enabled = value;
+					this.plugin.settings.excludedFolders[index] = value;
 					await this.plugin.saveSettings();
 				}))
 			.addButton(button => button
 				.setButtonText('Delete')
 				.setWarning()
 				.onClick(async () => {
-					this.plugin.settings.rules.splice(index, 1);
+					this.plugin.settings.excludedFolders.splice(index, 1);
 					await this.plugin.saveSettings();
 					this.display();
 				}));
