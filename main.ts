@@ -291,9 +291,9 @@ export default class FileOrganizerPlugin extends Plugin {
 				hour12: false
 			});
 
-			// Build log entry
-			let logEntry = `\n## File Organizer - ${timeStr}\n\n`;
-			logEntry += `Moved ${movedFiles.length} file${movedFiles.length === 1 ? '' : 's'}:\n\n`;
+			// Build log entry - compact format
+			let logEntry = `\n## File Organizer - ${timeStr}\n`;
+			logEntry += `Moved ${movedFiles.length} file${movedFiles.length === 1 ? '' : 's'}:\n`;
 
 			// Group files by folder
 			const filesByFolder = new Map<string, string[]>();
@@ -304,14 +304,11 @@ export default class FileOrganizerPlugin extends Plugin {
 				filesByFolder.get(file.folder)!.push(file.newPath);
 			}
 
-			// Create log entries grouped by folder
+			// Create log entries grouped by folder - compact format
 			for (const [folder, files] of filesByFolder.entries()) {
-				logEntry += `### → ${folder}\n`;
-				for (const filePath of files) {
-					const fileName = filePath.split('/').pop() || filePath;
-					logEntry += `- [[${filePath.replace('.md', '')}|${fileName}]]\n`;
-				}
-				logEntry += '\n';
+				logEntry += `- **${folder}**: `;
+				const fileNames = files.map(filePath => filePath.split('/').pop() || filePath);
+				logEntry += fileNames.join(', ') + '\n';
 			}
 
 			// Append log entry to daily note
