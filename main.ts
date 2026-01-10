@@ -92,10 +92,55 @@ export default class FileOrganizerPlugin extends Plugin {
 		let totalMoved = 0;
 		const movedFiles: Array<{oldPath: string, newPath: string, folder: string}> = [];
 
-		for (const rule of this.settings.rules) {
-			const result = await this.organizeByRule(rule);
-			totalMoved += result.count;
-			movedFiles.push(...result.files);
+		// Get all files
+		const files = this.app.vault.getFiles();
+
+		// Process each file and check rules in priority order (first rule wins)
+		for (const file of files) {
+			// Skip if file is in an excluded folder
+			if (this.isInExcludedFolder(file.path)) {
+				continue;
+			}
+
+			// Check each rule in order (array order = priority order)
+			for (const rule of this.settings.rules) {
+				// Skip if file is already in target folder
+				if (file.parent?.path === rule.folder) {
+					break; // Don't check other rules for this file
+				}
+
+				// Check if file matches this rule
+				const matches = await this.fileMatchesRule(file, rule);
+				if (matches) {
+					try {
+						const oldPath = file.path;
+						const newPath = `${rule.folder}/${file.name}`;
+
+						// Ensure target folder exists
+						await this.ensureFolder(rule.folder);
+
+						// Check if file with same name already exists in target folder
+						const existingFile = this.app.vault.getAbstractFileByPath(newPath);
+						if (existingFile) {
+							console.warn(`File already exists at ${newPath}, skipping ${file.path}`);
+							break; // Don't check other rules for this file
+						}
+
+						await this.app.vault.rename(file, newPath);
+						totalMoved++;
+						movedFiles.push({
+							oldPath: oldPath,
+							newPath: newPath,
+							folder: rule.folder
+						});
+						console.log(`Moved: ${oldPath} → ${newPath}`);
+						break; // Don't check other rules for this file (first match wins)
+					} catch (error) {
+						console.error(`Error moving file ${file.path}:`, error);
+						break; // Don't check other rules for this file
+					}
+				}
+			}
 		}
 
 		// Update last organized timestamp
@@ -113,59 +158,6 @@ export default class FileOrganizerPlugin extends Plugin {
 		} else {
 			console.log('File organization complete: No files to move');
 		}
-	}
-
-	async organizeByRule(rule: OrganizeRule): Promise<{count: number, files: Array<{oldPath: string, newPath: string, folder: string}>}> {
-		const { tag, folder, fileType, filenamePattern } = rule;
-		let movedCount = 0;
-		const movedFiles: Array<{oldPath: string, newPath: string, folder: string}> = [];
-
-		// Ensure target folder exists
-		await this.ensureFolder(folder);
-
-		// Get all files (not just markdown)
-		const files = this.app.vault.getFiles();
-
-		for (const file of files) {
-			// Skip if file is already in target folder
-			if (file.parent?.path === folder) {
-				continue;
-			}
-
-			// Skip if file is in an excluded folder
-			if (this.isInExcludedFolder(file.path)) {
-				continue;
-			}
-
-			// Check if file matches the rule
-			const matches = await this.fileMatchesRule(file, rule);
-			if (matches) {
-				try {
-					const oldPath = file.path;
-					const newPath = `${folder}/${file.name}`;
-
-					// Check if file with same name already exists in target folder
-					const existingFile = this.app.vault.getAbstractFileByPath(newPath);
-					if (existingFile) {
-						console.warn(`File already exists at ${newPath}, skipping ${file.path}`);
-						continue;
-					}
-
-					await this.app.vault.rename(file, newPath);
-					movedCount++;
-					movedFiles.push({
-						oldPath: oldPath,
-						newPath: newPath,
-						folder: folder
-					});
-					console.log(`Moved: ${oldPath} → ${newPath}`);
-				} catch (error) {
-					console.error(`Error moving file ${file.path}:`, error);
-				}
-			}
-		}
-
-		return { count: movedCount, files: movedFiles };
 	}
 
 	async fileMatchesRule(file: TFile, rule: OrganizeRule): Promise<boolean> {
@@ -401,7 +393,7 @@ class FileOrganizerSettingTab extends PluginSettingTab {
 		// Rules section
 		containerEl.createEl('h2', { text: 'Organization Rules' });
 		containerEl.createEl('p', {
-			text: 'Match files by tag (markdown only), file type, filename pattern, or any combination. Leave fields empty to ignore that criteria.',
+			text: 'Match files by tag (markdown only), file type, filename pattern, or any combination. Leave fields empty to ignore that criteria. Rules are processed in order (top = highest priority). If a file matches multiple rules, the first matching rule wins.',
 			cls: 'setting-item-description'
 		});
 
@@ -487,6 +479,30 @@ class FileOrganizerSettingTab extends PluginSettingTab {
 				.onChange(async (value) => {
 					rule.folder = value;
 					await this.plugin.saveSettings();
+				}))
+			.addButton(button => button
+				.setIcon('arrow-up')
+				.setTooltip('Move rule up (higher priority)')
+				.setDisabled(index === 0)
+				.onClick(async () => {
+					// Swap with previous rule
+					const temp = this.plugin.settings.rules[index - 1];
+					this.plugin.settings.rules[index - 1] = this.plugin.settings.rules[index];
+					this.plugin.settings.rules[index] = temp;
+					await this.plugin.saveSettings();
+					this.display();
+				}))
+			.addButton(button => button
+				.setIcon('arrow-down')
+				.setTooltip('Move rule down (lower priority)')
+				.setDisabled(index === this.plugin.settings.rules.length - 1)
+				.onClick(async () => {
+					// Swap with next rule
+					const temp = this.plugin.settings.rules[index + 1];
+					this.plugin.settings.rules[index + 1] = this.plugin.settings.rules[index];
+					this.plugin.settings.rules[index] = temp;
+					await this.plugin.saveSettings();
+					this.display();
 				}))
 			.addButton(button => button
 				.setIcon('trash')
