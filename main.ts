@@ -13,6 +13,8 @@ interface FileOrganizerSettings {
 	automaticOrganization: boolean;
 	lastOrganized: number; // timestamp
 	excludedFolders: string[];
+	logToDailyNote: boolean;
+	dailyNotesFolder: string;
 }
 
 const DEFAULT_SETTINGS: FileOrganizerSettings = {
@@ -20,7 +22,9 @@ const DEFAULT_SETTINGS: FileOrganizerSettings = {
 	organizeOnStartup: true,
 	automaticOrganization: true,
 	lastOrganized: 0,
-	excludedFolders: ['Templates']
+	excludedFolders: ['Templates'],
+	logToDailyNote: true,
+	dailyNotesFolder: 'Daily Notes'
 }
 
 export default class FileOrganizerPlugin extends Plugin {
@@ -86,10 +90,12 @@ export default class FileOrganizerPlugin extends Plugin {
 	async organizeFiles() {
 		console.log('Starting file organization...');
 		let totalMoved = 0;
+		const movedFiles: Array<{oldPath: string, newPath: string, folder: string}> = [];
 
 		for (const rule of this.settings.rules) {
-			const moved = await this.organizeByRule(rule);
-			totalMoved += moved;
+			const result = await this.organizeByRule(rule);
+			totalMoved += result.count;
+			movedFiles.push(...result.files);
 		}
 
 		// Update last organized timestamp
@@ -99,14 +105,20 @@ export default class FileOrganizerPlugin extends Plugin {
 		if (totalMoved > 0) {
 			new Notice(`File Organizer: Moved ${totalMoved} file${totalMoved === 1 ? '' : 's'}`);
 			console.log(`File organization complete: ${totalMoved} files moved`);
+
+			// Log to daily note if enabled
+			if (this.settings.logToDailyNote) {
+				await this.logToDailyNote(movedFiles);
+			}
 		} else {
 			console.log('File organization complete: No files to move');
 		}
 	}
 
-	async organizeByRule(rule: OrganizeRule): Promise<number> {
+	async organizeByRule(rule: OrganizeRule): Promise<{count: number, files: Array<{oldPath: string, newPath: string, folder: string}>}> {
 		const { tag, folder, fileType, filenamePattern } = rule;
 		let movedCount = 0;
+		const movedFiles: Array<{oldPath: string, newPath: string, folder: string}> = [];
 
 		// Ensure target folder exists
 		await this.ensureFolder(folder);
@@ -129,6 +141,7 @@ export default class FileOrganizerPlugin extends Plugin {
 			const matches = await this.fileMatchesRule(file, rule);
 			if (matches) {
 				try {
+					const oldPath = file.path;
 					const newPath = `${folder}/${file.name}`;
 
 					// Check if file with same name already exists in target folder
@@ -140,14 +153,19 @@ export default class FileOrganizerPlugin extends Plugin {
 
 					await this.app.vault.rename(file, newPath);
 					movedCount++;
-					console.log(`Moved: ${file.path} → ${newPath}`);
+					movedFiles.push({
+						oldPath: oldPath,
+						newPath: newPath,
+						folder: folder
+					});
+					console.log(`Moved: ${oldPath} → ${newPath}`);
 				} catch (error) {
 					console.error(`Error moving file ${file.path}:`, error);
 				}
 			}
 		}
 
-		return movedCount;
+		return { count: movedCount, files: movedFiles };
 	}
 
 	async fileMatchesRule(file: TFile, rule: OrganizeRule): Promise<boolean> {
@@ -244,6 +262,67 @@ export default class FileOrganizerPlugin extends Plugin {
 			}
 		}
 	}
+
+	async logToDailyNote(movedFiles: Array<{oldPath: string, newPath: string, folder: string}>) {
+		try {
+			// Get today's date in YYYY-MM-DD format
+			const today = new Date();
+			const dateStr = today.toISOString().split('T')[0];
+			const dailyNotePath = `${this.settings.dailyNotesFolder}/${dateStr}.md`;
+
+			// Ensure daily notes folder exists
+			await this.ensureFolder(this.settings.dailyNotesFolder);
+
+			// Get or create the daily note
+			let dailyNote = this.app.vault.getAbstractFileByPath(dailyNotePath) as TFile;
+
+			if (!dailyNote) {
+				// Create new daily note if it doesn't exist
+				dailyNote = await this.app.vault.create(dailyNotePath, '');
+			}
+
+			// Read current content
+			let content = await this.app.vault.read(dailyNote);
+
+			// Get current time
+			const timeStr = today.toLocaleTimeString('en-US', {
+				hour: '2-digit',
+				minute: '2-digit',
+				hour12: false
+			});
+
+			// Build log entry
+			let logEntry = `\n## File Organizer - ${timeStr}\n\n`;
+			logEntry += `Moved ${movedFiles.length} file${movedFiles.length === 1 ? '' : 's'}:\n\n`;
+
+			// Group files by folder
+			const filesByFolder = new Map<string, string[]>();
+			for (const file of movedFiles) {
+				if (!filesByFolder.has(file.folder)) {
+					filesByFolder.set(file.folder, []);
+				}
+				filesByFolder.get(file.folder)!.push(file.newPath);
+			}
+
+			// Create log entries grouped by folder
+			for (const [folder, files] of filesByFolder.entries()) {
+				logEntry += `### → ${folder}\n`;
+				for (const filePath of files) {
+					const fileName = filePath.split('/').pop() || filePath;
+					logEntry += `- [[${filePath.replace('.md', '')}|${fileName}]]\n`;
+				}
+				logEntry += '\n';
+			}
+
+			// Append log entry to daily note
+			content += logEntry;
+			await this.app.vault.modify(dailyNote, content);
+
+			console.log(`Logged ${movedFiles.length} moved files to daily note: ${dailyNotePath}`);
+		} catch (error) {
+			console.error('Error logging to daily note:', error);
+		}
+	}
 }
 
 class FileOrganizerSettingTab extends PluginSettingTab {
@@ -294,6 +373,32 @@ class FileOrganizerSettingTab extends PluginSettingTab {
 				.setCta()
 				.onClick(() => {
 					this.plugin.organizeFiles();
+				}));
+
+		// Logging section
+		containerEl.createEl('h2', { text: 'Logging' });
+
+		// Log to daily note toggle
+		new Setting(containerEl)
+			.setName('Log to daily note')
+			.setDesc('Append a log entry to today\'s daily note when files are moved')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.logToDailyNote)
+				.onChange(async (value) => {
+					this.plugin.settings.logToDailyNote = value;
+					await this.plugin.saveSettings();
+				}));
+
+		// Daily notes folder setting
+		new Setting(containerEl)
+			.setName('Daily notes folder')
+			.setDesc('Folder where daily notes are stored')
+			.addText(text => text
+				.setPlaceholder('Daily Notes')
+				.setValue(this.plugin.settings.dailyNotesFolder)
+				.onChange(async (value) => {
+					this.plugin.settings.dailyNotesFolder = value;
+					await this.plugin.saveSettings();
 				}));
 
 		// Rules section
