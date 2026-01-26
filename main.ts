@@ -31,6 +31,15 @@ export default class FileOrganizerPlugin extends Plugin {
 	settings: FileOrganizerSettings;
 	organizerInterval: number;
 
+	// Normalize folder path for comparison (handles trailing slashes, root folder, etc.)
+	normalizeFolderPath(path: string): string {
+		if (!path || path === '/' || path === '.') {
+			return '';
+		}
+		// Remove leading/trailing slashes and normalize separators
+		return path.replace(/^[\/\\]+|[\/\\]+$/g, '').replace(/\\/g, '/');
+	}
+
 	async onload() {
 		await this.loadSettings();
 		console.log('File Organizer plugin loaded');
@@ -56,7 +65,7 @@ export default class FileOrganizerPlugin extends Plugin {
 			id: 'organize-files-now',
 			name: 'Organize files now',
 			callback: () => {
-				this.organizeFiles();
+				this.organizeFiles(true);
 			}
 		});
 	}
@@ -87,31 +96,49 @@ export default class FileOrganizerPlugin extends Plugin {
 		}
 	}
 
-	async organizeFiles() {
+	async organizeFiles(isManual: boolean = false) {
 		console.log('Starting file organization...');
+		const allFiles = this.app.vault.getFiles();
+		console.log(`Total files in vault: ${allFiles.length}`);
+		console.log(`Active rules: ${this.settings.rules.length}`);
+
+		// Filter to only files modified since last organize (or all files if manual)
+		const files = isManual
+			? allFiles
+			: allFiles.filter(file => {
+				// Only process files modified since last organization run
+				return file.stat.mtime > this.settings.lastOrganized;
+			});
+
+		console.log(`Files to process: ${files.length} (${isManual ? 'manual run - all files' : 'modified since last run'})`);
+
 		let totalMoved = 0;
 		const movedFiles: Array<{oldPath: string, newPath: string, folder: string}> = [];
-
-		// Get all files
-		const files = this.app.vault.getFiles();
 
 		// Process each file and check rules in priority order (first rule wins)
 		for (const file of files) {
 			// Skip if file is in an excluded folder
 			if (this.isInExcludedFolder(file.path)) {
+				console.log(`Skipping excluded file: ${file.path}`);
 				continue;
 			}
 
 			// Check each rule in order (array order = priority order)
 			for (const rule of this.settings.rules) {
-				// Skip if file is already in target folder
-				if (file.parent?.path === rule.folder) {
-					break; // Don't check other rules for this file
-				}
-
 				// Check if file matches this rule
 				const matches = await this.fileMatchesRule(file, rule);
+				console.log(`File ${file.path} matches rule (tag: ${rule.tag}, type: ${rule.fileType}, pattern: ${rule.filenamePattern}): ${matches}`);
+
 				if (matches) {
+					// Skip if file is already in target folder (normalize paths for comparison)
+					const currentFolder = this.normalizeFolderPath(file.parent?.path || '');
+					const targetFolder = this.normalizeFolderPath(rule.folder);
+					console.log(`Checking ${file.path}: current="${currentFolder}", target="${targetFolder}"`);
+					if (currentFolder === targetFolder) {
+						console.log(`File ${file.path} already in target folder ${targetFolder}`);
+						break; // Don't check other rules for this file
+					}
+
 					try {
 						const oldPath = file.path;
 						const newPath = `${rule.folder}/${file.name}`;
@@ -157,6 +184,10 @@ export default class FileOrganizerPlugin extends Plugin {
 			}
 		} else {
 			console.log('File organization complete: No files to move');
+			// Show notification for manual runs even when nothing moved
+			if (isManual) {
+				new Notice('File Organizer: No files to move');
+			}
 		}
 	}
 
@@ -202,15 +233,18 @@ export default class FileOrganizerPlugin extends Plugin {
 
 			// Normalize tag (remove # if present, make lowercase)
 			const normalizedSearchTag = tag.toLowerCase().replace(/^#/, '');
+			console.log(`Checking tags for ${file.path}: looking for "${normalizedSearchTag}"`);
 
 			// Check frontmatter tags
 			if (cache?.frontmatter?.tags) {
 				const fmTags = cache.frontmatter.tags;
 				const tagsArray = Array.isArray(fmTags) ? fmTags : [fmTags];
+				console.log(`  Frontmatter tags: ${JSON.stringify(tagsArray)}`);
 
 				for (const fmTag of tagsArray) {
 					const normalizedFmTag = String(fmTag).toLowerCase().replace(/^#/, '');
 					if (normalizedFmTag === normalizedSearchTag) {
+						console.log(`  ✓ Match found in frontmatter: ${fmTag}`);
 						return true;
 					}
 				}
@@ -218,14 +252,18 @@ export default class FileOrganizerPlugin extends Plugin {
 
 			// Check inline tags
 			if (cache?.tags) {
+				const inlineTags = cache.tags.map(t => t.tag);
+				console.log(`  Inline tags: ${JSON.stringify(inlineTags)}`);
 				for (const tagCache of cache.tags) {
 					const normalizedInlineTag = tagCache.tag.toLowerCase().replace(/^#/, '');
 					if (normalizedInlineTag === normalizedSearchTag) {
+						console.log(`  ✓ Match found in inline tags: ${tagCache.tag}`);
 						return true;
 					}
 				}
 			}
 
+			console.log(`  ✗ No matching tags found`);
 			return false;
 		} catch (error) {
 			console.error(`Error checking tags for ${file.path}:`, error);
@@ -234,8 +272,13 @@ export default class FileOrganizerPlugin extends Plugin {
 	}
 
 	isInExcludedFolder(filePath: string): boolean {
+		const normalizedPath = this.normalizeFolderPath(filePath);
 		for (const excludedFolder of this.settings.excludedFolders) {
-			if (filePath.startsWith(excludedFolder + '/') || filePath.startsWith(excludedFolder + '\\')) {
+			if (!excludedFolder) continue;
+			const normalizedExcluded = this.normalizeFolderPath(excludedFolder);
+			// Check if file path starts with excluded folder path
+			if (normalizedPath === normalizedExcluded ||
+				normalizedPath.startsWith(normalizedExcluded + '/')) {
 				return true;
 			}
 		}
@@ -361,7 +404,7 @@ class FileOrganizerSettingTab extends PluginSettingTab {
 				.setButtonText('Organize Now')
 				.setCta()
 				.onClick(() => {
-					this.plugin.organizeFiles();
+					this.plugin.organizeFiles(true);
 				}));
 
 		// Logging section
