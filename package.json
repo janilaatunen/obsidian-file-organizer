@@ -1,12 +1,12 @@
 {
   "name": "obsidian-file-organizer",
-  "version": "1.1.4",
+  "version": "1.1.5",
   "description": "Organize files by tags, file types, and filename patterns",
   "main": "main.js",
   "scripts": {
     "dev": "node esbuild.config.mjs",
-    "build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
-    "deploy": "cp main.js manifest.json ~/Obsidian/Codex/.obsidian/plugins/obsidian-file-organizer/",
+    "build": "./node_modules/.bin/tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
+    "deploy": "cp main.js manifest.json ~/Obsidian/Codex/.obsidian/plugins/file-organizer/",
     "build:deploy": "npm run build && npm run deploy"
   },
   "keywords": [
