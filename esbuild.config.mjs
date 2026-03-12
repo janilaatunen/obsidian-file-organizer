@@ -1,6 +1,20 @@
 import esbuild from "esbuild";
 import process from "process";
 import builtins from "builtin-modules";
+import { copyFileSync } from "fs";
+import { homedir } from "os";
+
+const vault = `${homedir()}/Obsidian/Codex/.obsidian/plugins/obsidian-file-organizer`;
+
+const deployPlugin = {
+	name: "vault-deploy",
+	setup(build) {
+		build.onEnd(() => {
+			copyFileSync("main.js", `${vault}/main.js`);
+			copyFileSync("manifest.json", `${vault}/manifest.json`);
+		});
+	}
+};
 
 const banner =
 `/*
@@ -15,6 +29,7 @@ const context = await esbuild.context({
 	banner: {
 		js: banner,
 	},
+	plugins: [deployPlugin],
 	entryPoints: ["main.ts"],
 	bundle: true,
 	external: [
