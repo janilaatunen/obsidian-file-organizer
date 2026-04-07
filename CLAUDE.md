@@ -37,14 +37,8 @@ Build and deploy are automatic — esbuild copies files to the vault after every
 
 Then reload Obsidian (Cmd+Option+I to open console and check for errors).
 
-> **Claude Code:** Always run `npm run build` after making any code changes to this plugin.
+## Verification — Run After Every Change
 
-## Git
-
-Identity: personal (`jani@laatunen.fi` / janilaatunen)
-
-## Rules
-
-- Never increment version numbers without explicit confirmation
-- "Vibe coded" — focus on functionality over perfect code quality
-- Always recommend users backup their vault before using
+```bash
+npm run build   # Must succeed without errors
+```
