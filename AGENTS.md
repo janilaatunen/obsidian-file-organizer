@@ -1,44 +1,18 @@
-# CLAUDE.md — obsidian-file-organizer
+# obsidian-file-organizer
 
 Obsidian plugin for automatic rule-based file organization.
 
-## Tech Stack
+## Rules
 
-- TypeScript, esbuild
-- Obsidian API
+- **Organization runs on startup and every 24 hours.** It moves the user's files, so any change to the rules engine or the excluded-folder checks risks misfiling a real vault — reason it through before changing either.
+- `main.js` is a build artifact and gitignored — never hand-edit it.
 
-## Architecture
-
-- Main class extends `Plugin`
-- Rule-based file organization engine
-- Tag detection in frontmatter and inline content
-- Scheduled organization: runs on startup + every 24 hours
-- Excluded folders protection
-- Settings interface + settings tab
-
-## Commands
+## Verification
 
 ```bash
-npm install
-npm run build   # Production build → main.js, auto-deploys to vault
-npm run dev     # Watch mode, auto-deploys to vault on every save
+npm run build       # typecheck + build; esbuild copies into ~/Obsidian/Main on success
 ```
 
-## Build Output
+`build` alone already deploys. `npm run build:deploy` exists for the case where the esbuild copy step is bypassed; it re-copies explicitly.
 
-- `main.js` — plugin code (gitignored)
-- `manifest.json` — plugin metadata
-
-## Deployment
-
-Build and deploy are automatic — esbuild copies files to the vault after every build.
-
-**After any code change, run `npm run build` to build and deploy to vault.**
-
-Then reload Obsidian (Cmd+Option+I to open console and check for errors).
-
-## Verification — Run After Every Change
-
-```bash
-npm run build   # Must succeed without errors
-```
+**Then reload Obsidian** (Cmd+Option+I for the console) and check for errors. A build that succeeds proves nothing about runtime behaviour in the app.
